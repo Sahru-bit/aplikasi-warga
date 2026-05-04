@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+  
+<head>
+  <title>Aplikasi Data</title>
+  
+  <style>
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #ddd;
+    }
+  </style>
+
+</head>
+
+<body>
+  
+<h3>Cari Data</h3>
+<input id="keyword" placeholder="Cari nama...">
+<button onclick="searchData()">Cari</button>
+<button onclick="loadData()">Reset</button>
+
+<h2>Input Data</h2>
+
+<input id="nama" placeholder="Nama Kepala Keluarga"><br><br>
+<input id="alamat" placeholder="Alamat"><br><br>
+<input id="jumlah" placeholder="Jumlah Anggota"><br><br>
+
+<!-- 🔽 TAMBAHAN BARU -->
+<input id="nik" placeholder="NIK"><br><br>
+<input id="no_kk" placeholder="No KK"><br><br>
+
+<label>Agama</label><br>
+<select id="agama">
+  <option>Islam</option>
+  <option>Kristen</option>
+  <option>Katolik</option>
+  <option>Hindu</option>
+  <option>Buddha</option>
+</select><br><br>
+
+<label>Apakah Sedang Hamil?</label><br>
+<select id="hamil">
+  <option value="Tidak">Tidak</option>
+  <option value="Ya">Ya</option>
+</select><br><br>
+
+<label>Apakah Lansia (Umur > 60 tahun)?</label><br>
+<select id="lansia">
+  <option value="Tidak">Tidak</option>
+  <option value="Ya">Ya</option>
+</select><br><br>
+
+<input id="no_registrasi" placeholder="No Registrasi"><br><br>
+<input id="dasawisma" placeholder="Dasawisma"><br><br>
+
+<select id="jabatan_pkk">
+  <option>Ketua</option>
+  <option>Sekretaris</option>
+  <option>Bendahara</option>
+  <option>POKJA 1</option>
+  <option>POKJA 2</option>
+  <option>POKJA 3</option>
+  <option>POKJA 4</option>
+  <option>Anggota</option>
+</select><br><br>
+
+<select id="status_rumah">
+  <option value="Milik">Milik</option>
+  <option value="Sewa">Sewa</option>
+</select><br><br>
+
+<select id="pendidikan">
+  <option value="SD">SD</option>
+  <option value="SMP">SMP</option>
+  <option value="SMA">SMA</option>
+  <option value="D3">D3</option>
+  <option value="S1">S1</option>
+</select><br><br>
+
+<select id="kesehatan">
+  <option value="Sehat">Sehat</option>
+  <option value="Tidak Sehat">Tidak Sehat</option>
+</select><br><br>
+
+<button id="btnSimpan" onclick="tambah()">Simpan</button>
+<button onclick="batalEdit()">Batal</button>
+
+<h2>Semua Data</h2>
+
+<button onclick="loadData()">Semua</button>
+<button onclick="filterLansia()">Lansia</button>
+<button onclick="filterHamil()">Ibu Hamil</button>
+
+<p id="loading" style="display:none; color: blue;">
+  ⏳ Loading data...
+</p>
+
+<table border="1" id="tabel">
+  <thead>
+   <tr>
+    <th>Nama</th>
+    <th>NIK</th>
+    <th>No KK</th>
+    <th>Alamat</th>
+    <th>Jumlah</th>
+    <th>Status Rumah</th>
+    <th>Pendidikan</th>
+    <th>Kesehatan</th>
+    <th>Agama</th>
+    <th>Hamil</th>
+    <th>Lansia</th>
+    <th>No Reg</th>
+    <th>Dasawisma</th>
+    <th>PKK</th>
+    <th>Aksi</th>
+  </tr>
+  </thead>
+  <tbody id="hasil"></tbody>
+</table>
+
+<script>
+
+const BASE_URL = "https://mummy-carpentry-strut.ngrok-free.dev";
+
+let editId = null;
+
+async function tambah() {
+  let data = {
+    nama: document.getElementById("nama").value,
+    alamat: document.getElementById("alamat").value,
+    jumlah_anggota: document.getElementById("jumlah").value,
+    status_rumah: document.getElementById("status_rumah").value,
+    pendidikan: document.getElementById("pendidikan").value,
+    kesehatan: document.getElementById("kesehatan").value,
+    nik: document.getElementById("nik").value,
+    no_kk: document.getElementById("no_kk").value,
+    agama: document.getElementById("agama").value,
+    hamil: document.getElementById("hamil").value,
+    lansia: document.getElementById("lansia").value,
+    no_registrasi: document.getElementById("no_registrasi").value,
+    dasawisma: document.getElementById("dasawisma").value,
+    jabatan_pkk: document.getElementById("jabatan_pkk").value,
+  };
+
+  if (editId) {
+    // MODE EDIT
+    await fetch(BASE_URL + "/update/" + editId, {
+      method: "PUT",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(data)
+    });
+
+    alert("Data diupdate");
+    editId = null;
+
+  } else {
+    // MODE TAMBAH
+    await fetch(BASE_URL + "/tambah", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(data)
+    });
+
+    alert("Tersimpan");
+  }
+  document.getElementById("nama").value = "";
+  document.getElementById("alamat").value = "";
+  document.getElementById("jumlah").value = "";
+  document.getElementById("btnSimpan").innerText = "Simpan";
+
+  loadData();
+
+}
+
+async function loadData() {
+  // 🔥 tampilkan loading
+  document.getElementById("loading").style.display = "block";
+
+  let res = await fetch(BASE_URL + "/data");
+  let data = await res.json();
+
+  tampilkanTabel(data);
+
+  // 🔥 sembunyikan loading
+  document.getElementById("loading").style.display = "none";
+}
+
+async function hapusData(id) {
+  if (!confirm("Yakin mau hapus?")) return;
+
+  await fetch(BASE_URL + "/hapus/" + id, {
+    method: "DELETE"
+  });
+
+  alert("Data dihapus");
+
+  loadData(); // refresh tabel
+}
+
+
+async function searchData() {
+  document.getElementById("loading").style.display = "block";
+
+  let keyword = document.getElementById("keyword").value;
+
+  let res = await fetch(BASE_URL + "/search/" + keyword);
+  let data = await res.json();
+
+  tampilkanTabel(data);
+
+  document.getElementById("loading").style.display = "none";
+}
+
+function tampilkanTabel(data) {
+  let hasil = document.getElementById("hasil");
+  hasil.innerHTML = "";
+
+  data.forEach(d => {
+    let tr = document.createElement("tr");
+
+   tr.innerHTML = `
+    <td>${d.nama}</td>
+    <td>${d.nik}</td>
+    <td>${d.no_kk}</td>
+    <td>${d.alamat}</td>
+    <td>${d.jumlah_anggota}</td>
+    <td>${d.status_rumah}</td>
+    <td>${d.pendidikan}</td>
+    <td>${d.kesehatan}</td>
+    <td>${d.agama}</td>
+    <td>${d.hamil}</td>
+    <td>${d.lansia}</td>
+    <td>${d.no_registrasi}</td>
+    <td>${d.dasawisma}</td>
+    <td>${d.jabatan_pkk}</td>
+    <td>
+      <button onclick="editData(
+        '${d.id}',
+        '${d.nama}',
+        '${d.nik}',
+        '${d.no_kk}',
+        '${d.alamat}',
+        '${d.jumlah_anggota}',
+        '${d.status_rumah}',
+        '${d.pendidikan}',
+        '${d.kesehatan}',
+        '${d.agama}',
+        '${d.hamil}',
+        '${d.lansia}',
+        '${d.no_registrasi}',
+        '${d.dasawisma}',
+        '${d.jabatan_pkk}'
+      )">Edit</button>
+
+    <button onclick="hapusData('${d.id}')">Hapus</button>
+  </td>
+`;
+
+    hasil.appendChild(tr);
+  });
+}
+
+function editData(
+  id, nama, nik, no_kk, alamat, jumlah,
+  rumah, pendidikan, kesehatan,
+  agama, hamil, lansia, no_registrasi, dasawisma, jabatan_pkk
+) {
+  editId = id;
+
+  document.getElementById("nama").value = nama;
+  document.getElementById("nik").value = nik;
+  document.getElementById("no_kk").value = no_kk;
+  document.getElementById("alamat").value = alamat;
+  document.getElementById("jumlah").value = jumlah;
+
+  document.getElementById("status_rumah").value = rumah;
+  document.getElementById("pendidikan").value = pendidikan;
+  document.getElementById("kesehatan").value = kesehatan;
+
+  document.getElementById("agama").value = agama;
+  document.getElementById("hamil").value = hamil;
+  document.getElementById("lansia").value = lansia;
+
+  document.getElementById("no_registrasi").value = no_registrasi;
+  document.getElementById("dasawisma").value = dasawisma;
+  document.getElementById("jabatan_pkk").value = jabatan_pkk;
+
+  document.getElementById("btnSimpan").innerText = "Update";
+}
+
+function batalEdit() {
+  editId = null;
+
+document.getElementById("nama").value = "";
+document.getElementById("alamat").value = "";
+document.getElementById("jumlah").value = "";
+
+document.getElementById("nik").value = "";
+document.getElementById("no_kk").value = "";
+document.getElementById("agama").value = "Islam";
+document.getElementById("hamil").value = "Tidak";
+document.getElementById("lansia").value = "Tidak";
+document.getElementById("no_registrasi").value = "";
+document.getElementById("dasawisma").value = "";
+document.getElementById("jabatan_pkk").value = "Anggota";
+
+document.getElementById("btnSimpan").innerText = "Simpan";
+}
+async function filterLansia() {
+  document.getElementById("loading").style.display = "block";
+
+  let res = await fetch(BASE_URL + "/lansia");
+  let data = await res.json();
+
+  tampilkanTabel(data);
+
+  document.getElementById("loading").style.display = "none";
+}
+
+async function filterHamil() {
+  document.getElementById("loading").style.display = "block";
+
+  let res = await fetch(BASE_URL + "/hamil");
+  let data = await res.json();
+
+  tampilkanTabel(data);
+
+  document.getElementById("loading").style.display = "none";
+}
+
+</script>
+
+</body>
+</html>
