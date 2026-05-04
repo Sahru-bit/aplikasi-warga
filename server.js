@@ -133,6 +133,6 @@ app.get("/search/:keyword", (req, res) => {
   );
 });
 
-app.listen(3000, () => {
-  console.log("Server jalan di https://mummy-carpentry-strut.ngrok-free.dev");
+app.listen(process.env.PORT || 3000, () => {
+  console.log("Server jalan...");
 });
