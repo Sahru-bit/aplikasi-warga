@@ -2,10 +2,17 @@ const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const session = require("express-session");
+const bcrypt = require("bcrypt");
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
+app.use(session({
+  secret: "rahasia_desa",
+  resave: false,
+  saveUninitialized: true
+}));
 
 app.use(express.static(__dirname));
 
@@ -30,6 +37,22 @@ CREATE TABLE IF NOT EXISTS warga (
   jabatan_pkk TEXT
 )
 `);
+
+db.run(`
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT,
+  password TEXT,
+  role TEXT
+  )
+`);
+
+const passwordAdmin = bcrypt.hashSync("12345", 10);
+
+db.run(
+  "INSERT OR IGNORE INTO users (id, username, password, role) VALUES (1, ?, ?, ?)",
+  ["admin", passwordAdmin, "admin"]
+);
 
 app.post("/tambah", (req, res) => {
   const {
@@ -129,6 +152,38 @@ app.get("/search/:keyword", (req, res) => {
     (err, rows) => {
       if (err) return res.send(err);
       res.send(rows);
+    }
+  );
+});
+
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
+
+  db.get(
+    "SELECT * FROM users WHERE username = ?",
+    [username],
+    async (err, user) => {
+
+      if (!user) {
+        return res.status(401).send("User tidak ditemukan");
+      }
+
+      const cocok = await bcrypt.compare(password, user.password);
+
+      if (!cocok) {
+        return res.status(401).send("Password salah");
+      }
+
+      req.session.user = {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      };
+
+      res.send({
+        message: "Login berhasil",
+        role: user.role
+      });
     }
   );
 });

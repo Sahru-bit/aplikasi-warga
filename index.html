@@ -127,6 +127,10 @@
 </table>
 
 <script>
+  
+  if (!localStorage.getItem("login")) {
+  window.location.href = "login.html";
+}
 
 const BASE_URL = ("https://aplikasi-warga-production.up.railway.app")
 
