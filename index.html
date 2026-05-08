@@ -46,13 +46,13 @@
   <option>Buddha</option>
 </select><br><br>
 
-<label>Apakah Sedang Hamil?</label><br>
+<label>Apakah Sedang Hamil</label><br>
 <select id="hamil">
   <option value="Tidak">Tidak</option>
   <option value="Ya">Ya</option>
 </select><br><br>
 
-<label>Apakah Lansia (Umur > 60 tahun)?</label><br>
+<label>Apakah Lansia (Umur > 60 tahun)</label><br>
 <select id="lansia">
   <option value="Tidak">Tidak</option>
   <option value="Ya">Ya</option>
@@ -127,8 +127,8 @@
 </table>
 
 <script>
-  
-  if (!localStorage.getItem("login")) {
+
+  if (!sessionStorage.getItem("login")) {
   window.location.href = "login.html";
 }
 
