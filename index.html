@@ -170,7 +170,8 @@ async function tambah() {
     await fetch(BASE_URL + "/update/" + editId, {
       method: "PUT",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
+      credentials: "include"
     });
 
     alert("Data diupdate");
@@ -181,7 +182,8 @@ async function tambah() {
     await fetch(BASE_URL + "/tambah", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
+      credentials: "include"
     });
 
     alert("Tersimpan");
@@ -212,7 +214,8 @@ async function hapusData(id) {
   if (!confirm("Yakin mau hapus?")) return;
 
   await fetch(BASE_URL + "/hapus/" + id, {
-    method: "DELETE"
+    method: "DELETE",
+    credentials: "include"
   });
 
   alert("Data dihapus");
@@ -359,7 +362,9 @@ async function lihatLogs() {
 
   document.getElementById("loading").style.display = "block";
 
-  let res = await fetch(BASE_URL + "/logs");
+  let res = await fetch(BASE_URL + "/logs", {
+    credentials: "include"
+  });
 
   let data = await res.json();
 

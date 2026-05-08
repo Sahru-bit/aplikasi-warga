@@ -28,12 +28,16 @@ async function login() {
     headers: {
       "Content-Type":"application/json"
     },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
+    credentials: "include"
   });
 
   if (res.ok) {
     alert("Login berhasil");
+    let hasil = await res.json();
+
     sessionStorage.setItem("login", "true");
+    sessionStorage.setItem("role", hasil.role);
 
     window.location.href = "index.html";
 

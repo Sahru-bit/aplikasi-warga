@@ -6,7 +6,10 @@ const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: "https://aplikasi-warga-production.up.railway.app",
+  credentials: true
+}));
 app.use(bodyParser.json());
 app.use(session({
   secret: "rahasia_desa",
