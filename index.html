@@ -264,7 +264,11 @@ function tampilkanTabel(data) {
         '${d.jabatan_pkk}'
       )">Edit</button>
 
-    <button onclick="hapusData('${d.id}')">Hapus</button>
+    ${
+       sessionStorage.getItem("role") === "admin"
+        ? `<button onclick="hapusData('${d.id}')">Hapus</button>`
+         : ``
+}
   </td>
 `;
 

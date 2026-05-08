@@ -54,6 +54,13 @@ db.run(
   ["admin", passwordAdmin, "admin"]
 );
 
+const passwordOperator = bcrypt.hashSync("12345", 10);
+
+db.run(
+  "INSERT OR IGNORE INTO users (id, username, password, role) VALUES (2, ?, ?, ?)",
+  ["operator", passwordOperator, "operator"]
+);
+
 app.post("/tambah", (req, res) => {
   const {
     nama, nik, no_kk, alamat, jumlah_anggota,
