@@ -99,6 +99,8 @@
 <button onclick="filterLansia()">Lansia</button>
 <button onclick="filterHamil()">Ibu Hamil</button>
 
+<div id="adminMenu"></div>
+
 <p id="loading" style="display:none; color: blue;">
   ⏳ Loading data...
 </p>
@@ -135,6 +137,15 @@
 const BASE_URL = ("https://aplikasi-warga-production.up.railway.app")
 
 let editId = null;
+if (sessionStorage.getItem("role") === "admin") {
+
+  document.getElementById("adminMenu").innerHTML = `
+    <button onclick="lihatLogs()">
+      Audit Log
+    </button>
+  `;
+
+} 
 
 async function tambah() {
   let data = {
@@ -342,6 +353,43 @@ async function filterHamil() {
   tampilkanTabel(data);
 
   document.getElementById("loading").style.display = "none";
+}
+
+async function lihatLogs() {
+
+  document.getElementById("loading").style.display = "block";
+
+  let res = await fetch(BASE_URL + "/logs");
+
+  let data = await res.json();
+
+  let hasil = document.getElementById("hasil");
+
+  hasil.innerHTML = "";
+
+  data.forEach(log => {
+
+    let tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td colspan="15">
+        <b>${log.username}</b>
+        (${log.role})
+        melakukan
+        <b>${log.aksi}</b>
+        terhadap
+        <b>${log.target}</b>
+        <br>
+        ${log.waktu}
+      </td>
+    `;
+
+    hasil.appendChild(tr);
+
+  });
+
+  document.getElementById("loading").style.display = "none";
+
 }
 
 </script>

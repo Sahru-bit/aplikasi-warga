@@ -52,6 +52,17 @@ CREATE TABLE IF NOT EXISTS users (
 )
 `);
 
+pool.query(`
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id SERIAL PRIMARY KEY,
+  username TEXT,
+  role TEXT,
+  aksi TEXT,
+  target TEXT,
+  waktu TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+`);
+
 const passwordAdmin = bcrypt.hashSync("12345", 10);
 
 pool.query(
@@ -110,6 +121,13 @@ app.post("/tambah", async (req, res) => {
         dasawisma, jabatan_pkk
       ]
     );
+
+    await simpanLog(
+    req.session.user.username,
+   req.session.user.role,
+   "tambah",
+    nama
+ );
 
     res.send("Berhasil tambah");
 
@@ -212,6 +230,13 @@ app.put("/update/:id", async (req, res) => {
       ]
     );
 
+    await simpanLog(
+   req.session.user.username,
+   req.session.user.role,
+    "update",
+    nama
+  );
+
     res.send("Berhasil diupdate");
 
   } catch(err) {
@@ -222,6 +247,17 @@ app.put("/update/:id", async (req, res) => {
 
 app.delete("/hapus/:id", async (req, res) => {
   const id = req.params.id;
+  const dataLama = await pool.query(
+  "SELECT nama FROM warga WHERE id = $1",
+  [id]
+);
+
+  await simpanLog(
+    req.session.user.username,
+    req.session.user.role,
+    "hapus",
+    dataLama.rows[0]?.nama || ("id " + id)
+  );
 
   try {
     await pool.query("DELETE FROM warga WHERE id = $1", [id]);
@@ -277,6 +313,13 @@ app.post("/login", async (req, res) => {
       role: user.role
     };
 
+    await simpanLog(
+     user.username,
+      user.role,
+     "login",
+      "login sistem"
+    );
+
     res.send({
       message: "Login berhasil",
       role: user.role
@@ -287,6 +330,54 @@ app.post("/login", async (req, res) => {
   }
 
 });
+
+app.get("/logs", async (req, res) => {
+
+  // 🔒 hanya admin
+  if (!req.session.user || req.session.user.role !== "admin") {
+    return res.status(403).send("Akses ditolak");
+  }
+
+  try {
+
+    const result = await pool.query(
+      `
+      SELECT * FROM audit_logs
+      ORDER BY waktu DESC
+      LIMIT 100
+      `
+    );
+
+    res.send(result.rows);
+
+  } catch(err) {
+
+    res.send(err);
+
+  }
+
+});
+
+async function simpanLog(username, role, aksi, target) {
+
+  try {
+
+    await pool.query(
+      `
+      INSERT INTO audit_logs
+      (username, role, aksi, target)
+      VALUES ($1, $2, $3, $4)
+      `,
+      [username, role, aksi, target]
+    );
+
+  } catch(err) {
+
+    console.log("Audit log error:", err);
+
+  }
+
+}
 
 app.listen(process.env.PORT || 3000, () => {
   console.log("Server jalan...");
