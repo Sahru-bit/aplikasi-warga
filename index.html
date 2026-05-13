@@ -41,11 +41,6 @@
 </head>
 
 <body>
-  
-<h3>Cari Data</h3>
-<input id="keyword" placeholder="Cari nama...">
-<button onclick="searchData()">Cari</button>
-<button onclick="loadData()">Reset</button>
 
 <h2>Input Data</h2>
 
@@ -144,6 +139,29 @@
   ⏳ Loading data...
 </p>
 
+<h3>Pencarian Data</h3>
+
+<input
+  type="text"
+  id="search"
+  placeholder="Cari nama / NIK..."
+  oninput="filterData()"
+/>
+
+<select id="filterLansia" onchange="filterData()">
+  <option value="">Semua Lansia</option>
+  <option value="Ya">Lansia</option>
+  <option value="Tidak">Bukan Lansia</option>
+</select>
+
+<select id="filterHamil" onchange="filterData()">
+  <option value="">Semua Hamil</option>
+  <option value="Ya">Hamil</option>
+  <option value="Tidak">Tidak Hamil</option>
+</select>
+
+<br><br>
+
 <table border="1" id="tabel">
   <thead>
    <tr>
@@ -231,6 +249,7 @@ async function tambahUser() {
 const BASE_URL = ("https://aplikasi-warga-production.up.railway.app")
 
 let editId = null;
+let semuaData = [];
 let currentUser = null;
 init();
 
@@ -296,7 +315,8 @@ async function tambah() {
     let data = {
       nama: document.getElementById("nama").value,
       alamat: document.getElementById("alamat").value,
-      jumlah_anggota: document.getElementById("jumlah").value,
+      jumlah_anggota:
+        parseInt(document.getElementById("jumlah").value) || 0,
       status_rumah: document.getElementById("status_rumah").value,
       pendidikan: document.getElementById("pendidikan").value,
       kesehatan: document.getElementById("kesehatan").value,
@@ -323,6 +343,13 @@ async function tambah() {
 
       return;
     }
+
+    if (data.jumlah_anggota < 0) {
+
+    alert("Jumlah anggota tidak valid");
+
+    return;
+  }
 
     document.getElementById("btnSimpan").disabled = true;
 
@@ -432,6 +459,8 @@ async function loadData() {
 
     let data = await res.json();
 
+    semuaData = data;
+
     tampilkanTabel(data);
 
     document.getElementById("loading").style.display = "none";
@@ -446,6 +475,48 @@ async function loadData() {
 
   }
 
+}
+
+function filterData() {
+
+  let keyword = document
+    .getElementById("search")
+    .value
+    .toLowerCase();
+
+  let filterLansia =
+    document.getElementById("filterLansia").value;
+
+  let filterHamil =
+    document.getElementById("filterHamil").value;
+
+  let hasilFilter = semuaData.filter(d => {
+
+    let cocokSearch =
+   String(d.nama || "")
+    .toLowerCase()
+    .includes(keyword)
+    
+    ||
+
+   String(d.nik || "")
+    .toLowerCase()
+    .includes(keyword);
+
+    let cocokLansia =
+      !filterLansia ||
+      d.lansia === filterLansia;
+
+    let cocokHamil =
+      !filterHamil ||
+      d.hamil === filterHamil;
+
+    return cocokSearch &&
+           cocokLansia &&
+           cocokHamil;
+  });
+
+  tampilkanTabel(hasilFilter);
 }
 
 async function hapusData(id) {
@@ -483,50 +554,6 @@ async function hapusData(id) {
     document.getElementById("loading").style.display = "none";
 
     alert("Gagal menghapus data");
-
-    console.log(err);
-
-  }
-
-}
-
-
-async function searchData() {
-
-  try {
-
-    document.getElementById("loading").style.display = "block";
-
-    let keyword = document.getElementById("keyword").value;
-
-    let res = await fetch(BASE_URL + "/search/" + encodeURIComponent(keyword),
-      {
-        credentials: "include"
-      }
-    );
-
-    if (res.status === 401) {
-
-      document.getElementById("loading").style.display = "none";
-
-      alert("Session habis");
-
-      window.location.href = "login.html";
-
-      return;
-    }
-
-    let data = await res.json();
-
-    tampilkanTabel(data);
-
-    document.getElementById("loading").style.display = "none";
-
-  } catch(err) {
-
-    document.getElementById("loading").style.display = "none";
-
-    alert("Gagal terhubung ke server");
 
     console.log(err);
 
@@ -722,6 +749,8 @@ async function filterLansia() {
 
     let data = await res.json();
 
+    semuaData = data;
+
     tampilkanTabel(data);
 
     document.getElementById("loading").style.display = "none";
@@ -760,6 +789,8 @@ async function filterHamil() {
     }
 
     let data = await res.json();
+
+    semuaData = data;
 
     tampilkanTabel(data);
 
@@ -856,11 +887,13 @@ async function logout() {
 
       alert("Session habis, login ulang");
 
+      document.getElementById("loading").style.display = "none";
+
       window.location.href = "login.html";
 
       return;
     }
-
+    document.getElementById("loading").style.display = "none";
     window.location.href = "login.html";
 
   } catch(err) {
