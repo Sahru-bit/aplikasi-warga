@@ -6,8 +6,10 @@ const cors = require("cors");
 const session = require("express-session");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
+const helmet = require("helmet");
 
 const app = express();
+app.use(helmet());
 app.use(cors({
   origin: "https://aplikasi-warga-production.up.railway.app",
   credentials: true
@@ -110,7 +112,13 @@ app.post("/tambah", harusLogin, async (req, res) => {
   } = req.body;
 
   try {
+    if (jumlah_anggota < 0) {
 
+    return res
+    .status(400)
+    .send("Jumlah anggota tidak valid");
+
+  }
     await pool.query(
       `
       INSERT INTO warga (
@@ -152,12 +160,16 @@ app.post("/tambah", harusLogin, async (req, res) => {
 
 app.get("/data", harusLogin, async (req, res) => {
 
-  const limit = parseInt(req.query.limit) || 50;
+  let limit = parseInt(req.query.limit) || 50;
+
+  if (limit < 1) limit = 1;
+
+  if (limit > 100) limit = 100;
 
   try {
 
     const result = await pool.query(
-      "SELECT * FROM warga LIMIT $1",
+      "SELECT * FROM warga ORDER BY id DESC LIMIT $1",
       [limit]
     );
 
@@ -175,7 +187,7 @@ app.get("/lansia", harusLogin, async (req, res) => {
   try {
 
     const result = await pool.query(
-      "SELECT * FROM warga WHERE lansia = $1",
+      "SELECT * FROM warga WHERE lansia = $1 ORDER BY id DESC",
       ["Ya"]
     );
 
@@ -192,7 +204,7 @@ app.get("/hamil", harusLogin, async (req, res) => {
   try {
 
     const result = await pool.query(
-      "SELECT * FROM warga WHERE hamil = $1",
+      "SELECT * FROM warga WHERE hamil = $1 ORDER BY id DESC",
       ["Ya"]
     );
 
@@ -216,7 +228,13 @@ app.put("/update/:id", harusLogin, async (req, res) => {
   } = req.body;
 
   try {
+    if (jumlah_anggota < 0) {
 
+    return res
+    .status(400)
+    .send("Jumlah anggota tidak valid");
+
+  }
     await pool.query(
       `
       UPDATE warga
@@ -265,7 +283,7 @@ app.put("/update/:id", harusLogin, async (req, res) => {
 
 });
 
-app.delete("/hapus/:id",harusLogin, async (req, res) => {
+app.delete("/hapus/:id", hanyaAdmin, async (req, res) => {
   const id = req.params.id;
   const dataLama = await pool.query(
   "SELECT nama FROM warga WHERE id = $1",
@@ -289,18 +307,34 @@ res.status(500).send("Server error");
 });
 
 app.get("/search/:keyword", harusLogin, async (req, res) => {
+
   const keyword = req.params.keyword;
 
   try {
+
     const result = await pool.query(
-      "SELECT * FROM warga WHERE nama ILIKE $1",
+      `
+     SELECT *
+      FROM warga
+      WHERE
+        nama ILIKE $1
+        OR nik ILIKE $1
+        ORDER BY id DESC
+      LIMIT 50
+      `,
       ["%" + keyword + "%"]
     );
+
     res.send(result.rows);
+
   } catch(err) {
+
     console.log(err);
+
     res.status(500).send("Server error");
+
   }
+
 });
 
 app.post("/login", async (req, res) => {
