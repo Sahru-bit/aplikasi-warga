@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
@@ -12,9 +13,16 @@ app.use(cors({
 }));
 app.use(bodyParser.json());
 app.use(session({
-  secret: "rahasia_desa",
+  secret: process.env.SESSION_SECRET,
   resave: false,
-  saveUninitialized: true
+  saveUninitialized: false,
+
+  cookie: {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    maxAge: 1000 * 60 * 60 * 24
+  }
 }));
 
 app.use(express.static(__dirname));
@@ -49,7 +57,7 @@ CREATE TABLE IF NOT EXISTS warga (
 pool.query(`
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
-  username TEXT,
+  username TEXT UNIQUE,
   password TEXT,
   role TEXT
 )
@@ -66,7 +74,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 )
 `);
 
-const passwordAdmin = bcrypt.hashSync("12345", 10);
+const passwordAdmin = bcrypt.hashSync(process.env.DEFAULT_ADMIN_PASSWORD, 10);
 
 pool.query(
   `
@@ -79,7 +87,7 @@ pool.query(
   ["admin", passwordAdmin, "admin"]
 );
 
-const passwordOperator = bcrypt.hashSync("12345", 10);
+const passwordOperator = bcrypt.hashSync(process.env.DEFAULT_OPERATOR_PASSWORD, 10);
 
 pool.query(
   `
@@ -92,7 +100,7 @@ pool.query(
   ["operator", passwordOperator, "operator"]
 );
 
-app.post("/tambah", async (req, res) => {
+app.post("/tambah", harusLogin, async (req, res) => {
 
   const {
     nama, nik, no_kk, alamat, jumlah_anggota,
@@ -135,12 +143,13 @@ app.post("/tambah", async (req, res) => {
     res.send("Berhasil tambah");
 
   } catch(err) {
-    res.send(err);
+    console.log(err);
+    res.status(500).send("Server error");
   }
 
 });
 
-app.get("/data", async (req, res) => {
+app.get("/data", harusLogin, async (req, res) => {
 
   const limit = parseInt(req.query.limit) || 50;
 
@@ -154,12 +163,13 @@ app.get("/data", async (req, res) => {
     res.send(result.rows);
 
   } catch(err) {
-    res.send(err);
+    console.log(err);
+    res.status(500).send("Server error");
   }
 
 });
 
-app.get("/lansia", async (req, res) => {
+app.get("/lansia", harusLogin, async (req, res) => {
 
   try {
 
@@ -171,12 +181,13 @@ app.get("/lansia", async (req, res) => {
     res.send(result.rows);
 
   } catch(err) {
-    res.send(err);
+    console.log(err);
+    res.status(500).send("Server error");
   }
 
 });
 
-app.get("/hamil", async (req, res) => {
+app.get("/hamil", harusLogin, async (req, res) => {
   try {
 
     const result = await pool.query(
@@ -187,11 +198,12 @@ app.get("/hamil", async (req, res) => {
     res.send(result.rows);
 
   } catch(err) {
-    res.send(err);
+    console.log(err);
+    res.status(500).send("Server error");
   }
 });
 
-app.put("/update/:id", async (req, res) => {
+app.put("/update/:id", harusLogin, async (req, res) => {
 
   const id = req.params.id;
 
@@ -234,21 +246,25 @@ app.put("/update/:id", async (req, res) => {
     );
 
     await simpanLog(
-   req.session.user.username,
-   req.session.user.role,
-    "update",
-    nama
-  );
+      req.session.user.username,
+      req.session.user.role,
+      "update",
+      nama
+    );
 
     res.send("Berhasil diupdate");
 
   } catch(err) {
-    res.send(err);
+
+    console.log(err);
+
+    res.status(500).send("Server error");
+
   }
 
 });
 
-app.delete("/hapus/:id", async (req, res) => {
+app.delete("/hapus/:id",harusLogin, async (req, res) => {
   const id = req.params.id;
   const dataLama = await pool.query(
   "SELECT nama FROM warga WHERE id = $1",
@@ -266,11 +282,12 @@ app.delete("/hapus/:id", async (req, res) => {
     await pool.query("DELETE FROM warga WHERE id = $1", [id]);
     res.send("Data berhasil dihapus");
   } catch(err) {
-    res.send(err);
+    console.log(err);
+res.status(500).send("Server error");
   }
 });
 
-app.get("/search/:keyword", async (req, res) => {
+app.get("/search/:keyword", harusLogin, async (req, res) => {
   const keyword = req.params.keyword;
 
   try {
@@ -280,7 +297,8 @@ app.get("/search/:keyword", async (req, res) => {
     );
     res.send(result.rows);
   } catch(err) {
-    res.send(err);
+    console.log(err);
+    res.status(500).send("Server error");
   }
 });
 
@@ -329,12 +347,13 @@ app.post("/login", async (req, res) => {
     });
 
   } catch(err) {
-    res.send(err);
+    console.log(err);
+    res.status(500).send("Server error");
   }
 
 });
 
-app.get("/logs", async (req, res) => {
+app.get("/logs", harusLogin, async (req, res) => {
 
   // 🔒 hanya admin
   if (!req.session.user || req.session.user.role !== "admin") {
@@ -355,7 +374,8 @@ app.get("/logs", async (req, res) => {
 
   } catch(err) {
 
-    res.send(err);
+    console.log(err);
+    res.status(500).send("Server error");
 
   }
 
@@ -381,6 +401,117 @@ async function simpanLog(username, role, aksi, target) {
   }
 
 }
+
+function hanyaAdmin(req, res, next) {
+
+  if (!req.session.user) {
+    return res.status(401).send("Harus login");
+  }
+
+  if (req.session.user.role !== "admin") {
+    return res.status(403).send("Akses ditolak");
+  }
+
+  next();
+
+}
+
+app.post("/tambah-user", hanyaAdmin, async (req, res) => {
+
+  const { username, password, role } = req.body;
+
+  try {
+
+    const cek = await pool.query(
+      "SELECT * FROM users WHERE username = $1",
+      [username]
+    );
+
+    if (cek.rows.length > 0) {
+      return res.send("Username sudah dipakai");
+    }
+
+    if (role !== "admin" && role !== "operator") {
+      return res.status(400).send("Role tidak valid");
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+
+    await pool.query(
+      `
+      INSERT INTO users (username, password, role)
+      VALUES ($1, $2, $3)
+      `,
+      [username, hash, role]
+    );
+
+    await simpanLog(
+      req.session.user.username,
+      req.session.user.role,
+      "tambah user",
+      username
+    );
+
+    res.send("User berhasil ditambah");
+
+  } catch(err) {
+
+    console.log(err);
+
+    res.status(500).send("Server error");
+
+  }
+
+});
+
+function harusLogin(req, res, next) {
+
+  if (!req.session.user) {
+    return res.status(401).send("Harus login");
+  }
+
+  next();
+
+}
+
+app.get("/users", hanyaAdmin, async (req, res) => {
+
+  try {
+
+    const result = await pool.query(
+      `
+      SELECT id, username, role
+      FROM users
+      ORDER BY id DESC
+      `
+    );
+
+    res.send(result.rows);
+
+  } catch(err) {
+
+    console.log(err);
+    res.status(500).send("Server error");
+  }
+
+});
+
+app.post("/logout", (req, res) => {
+
+  req.session.destroy(() => {
+    res.send("Logout berhasil");
+  });
+
+});
+
+app.get("/me", harusLogin, (req, res) => {
+
+  res.send({
+    username: req.session.user.username,
+    role: req.session.user.role
+  });
+
+});
 
 app.listen(process.env.PORT || 3000, () => {
   console.log("Server jalan...");

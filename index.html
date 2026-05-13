@@ -2,21 +2,41 @@
 <html>
   
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aplikasi Data</title>
   
-  <style>
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
-    th, td {
-      padding: 8px;
-      text-align: left;
-    }
-    th {
-      background-color: #ddd;
-    }
-  </style>
+<style>
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    display: block;
+    overflow-x: auto;
+  }
+
+  th, td {
+    padding: 8px;
+    text-align: left;
+  }
+
+  th {
+    background-color: #ddd;
+  }
+
+  button {
+    margin: 2px;
+    padding: 8px;
+  }
+
+  input, select, button {
+    width: 100%;
+    max-width: 400px;
+    padding: 8px;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+  }
+
+</style>
 
 </head>
 
@@ -98,8 +118,27 @@
 <button onclick="loadData()">Semua</button>
 <button onclick="filterLansia()">Lansia</button>
 <button onclick="filterHamil()">Ibu Hamil</button>
+<button onclick="logout()">Logout</button>
 
 <div id="adminMenu"></div>
+<div id="userPanel" style="display:none; margin-top:20px;">
+
+  <h2>Tambah User</h2>
+
+  <input id="newUsername" placeholder="Username"><br><br>
+
+  <input id="newPassword" type="password" placeholder="Password"><br><br>
+
+  <select id="newRole">
+    <option value="operator">Operator</option>
+    <option value="admin">Admin</option>
+  </select><br><br>
+
+  <button onclick="tambahUser()">
+    Tambah User
+  </button>
+
+</div>
 
 <p id="loading" style="display:none; color: blue;">
   ⏳ Loading data...
@@ -129,112 +168,382 @@
 </table>
 
 <script>
+async function tambahUser() {
 
-  if (!sessionStorage.getItem("login")) {
-  window.location.href = "login.html";
+  try {
+
+    let data = {
+      username: document.getElementById("newUsername").value,
+      password: document.getElementById("newPassword").value,
+      role: document.getElementById("newRole").value
+    };
+
+    if (!data.username || !data.password) {
+
+      alert("Username dan password wajib diisi");
+
+      return;
+    }
+
+    document.getElementById("loading").style.display = "block";
+
+    let res = await fetch(BASE_URL + "/tambah-user", {
+      method: "POST",
+      headers: {
+        "Content-Type":"application/json"
+      },
+      credentials: "include",
+      body: JSON.stringify(data)
+    });
+
+    if (res.status === 401) {
+
+      document.getElementById("loading").style.display = "none";
+
+      alert("Session habis, login ulang");
+
+      window.location.href = "login.html";
+
+      return;
+    }
+
+    let hasil = await res.text();
+
+    alert(hasil);
+
+    document.getElementById("newUsername").value = "";
+    document.getElementById("newPassword").value = "";
+    document.getElementById("newRole").value = "operator";
+
+    document.getElementById("loading").style.display = "none";
+
+  } catch(err) {
+
+    document.getElementById("loading").style.display = "none";
+
+    alert("Gagal terhubung ke server");
+
+    console.log(err);
+
+  }
+
 }
-
 const BASE_URL = ("https://aplikasi-warga-production.up.railway.app")
 
 let editId = null;
-if (sessionStorage.getItem("role") === "admin") {
+let currentUser = null;
+init();
 
-  document.getElementById("adminMenu").innerHTML = `
-    <button onclick="lihatLogs()">
-      Audit Log
-    </button>
-  `;
+async function init() {
 
-} 
+  let ok = await cekUser();
+
+  if (!ok) return;
+
+
+  await loadData();
+
+}
+
+async function cekUser() {
+
+  try {
+
+    let res = await fetch(BASE_URL + "/me", {
+      credentials: "include"
+    });
+
+    if (res.status === 401) {
+
+      window.location.href = "login.html";
+
+      return false;
+    }
+
+    let user = await res.json();
+
+    currentUser = user;
+
+    if (user.role === "admin") {
+
+      document.getElementById("userPanel").style.display = "block";
+
+      document.getElementById("adminMenu").innerHTML = `
+        <button onclick="lihatLogs()">
+          Audit Log
+        </button>
+      `;
+    }
+
+    return true;
+
+  } catch(err) {
+
+    alert("Gagal terhubung ke server");
+
+    console.log(err);
+
+    return false;
+
+  }
+
+}
 
 async function tambah() {
-  let data = {
-    nama: document.getElementById("nama").value,
-    alamat: document.getElementById("alamat").value,
-    jumlah_anggota: document.getElementById("jumlah").value,
-    status_rumah: document.getElementById("status_rumah").value,
-    pendidikan: document.getElementById("pendidikan").value,
-    kesehatan: document.getElementById("kesehatan").value,
-    nik: document.getElementById("nik").value,
-    no_kk: document.getElementById("no_kk").value,
-    agama: document.getElementById("agama").value,
-    hamil: document.getElementById("hamil").value,
-    lansia: document.getElementById("lansia").value,
-    no_registrasi: document.getElementById("no_registrasi").value,
-    dasawisma: document.getElementById("dasawisma").value,
-    jabatan_pkk: document.getElementById("jabatan_pkk").value,
-  };
 
-  if (editId) {
-    // MODE EDIT
-    await fetch(BASE_URL + "/update/" + editId, {
-      method: "PUT",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(data),
-      credentials: "include"
-    });
+  try {
 
-    alert("Data diupdate");
-    editId = null;
+    let data = {
+      nama: document.getElementById("nama").value,
+      alamat: document.getElementById("alamat").value,
+      jumlah_anggota: document.getElementById("jumlah").value,
+      status_rumah: document.getElementById("status_rumah").value,
+      pendidikan: document.getElementById("pendidikan").value,
+      kesehatan: document.getElementById("kesehatan").value,
+      nik: document.getElementById("nik").value,
+      no_kk: document.getElementById("no_kk").value,
+      agama: document.getElementById("agama").value,
+      hamil: document.getElementById("hamil").value,
+      lansia: document.getElementById("lansia").value,
+      no_registrasi: document.getElementById("no_registrasi").value,
+      dasawisma: document.getElementById("dasawisma").value,
+      jabatan_pkk: document.getElementById("jabatan_pkk").value,
+    };
 
-  } else {
-    // MODE TAMBAH
-    await fetch(BASE_URL + "/tambah", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify(data),
-      credentials: "include"
-    });
+    if (!data.nama || !data.alamat || !data.nik) {
 
-    alert("Tersimpan");
+      alert("Data wajib diisi");
+
+      return;
+    }
+
+    if (isNaN(data.nik)) {
+
+      alert("NIK harus angka");
+
+      return;
+    }
+
+    document.getElementById("btnSimpan").disabled = true;
+
+    document.getElementById("loading").style.display = "block";
+
+    if (editId) {
+
+      // MODE EDIT
+      let res = await fetch(BASE_URL + "/update/" + editId, {
+        method: "PUT",
+        headers: {
+          "Content-Type":"application/json"
+        },
+        body: JSON.stringify(data),
+        credentials: "include"
+      });
+
+      if (res.status === 401) {
+
+        document.getElementById("loading").style.display = "none";
+
+        document.getElementById("btnSimpan").disabled = false;
+
+        alert("Session habis, login ulang");
+
+        window.location.href = "login.html";
+
+        return;
+      }
+
+      alert("Data diupdate");
+
+      batalEdit();
+
+
+    } else {
+
+      // MODE TAMBAH
+      let res = await fetch(BASE_URL + "/tambah", {
+        method: "POST",
+        headers: {
+          "Content-Type":"application/json"
+        },
+        body: JSON.stringify(data),
+        credentials: "include"
+      });
+
+      if (res.status === 401) {
+
+        document.getElementById("loading").style.display = "none";
+
+        document.getElementById("btnSimpan").disabled = false;
+
+        alert("Session habis, login ulang");
+
+        window.location.href = "login.html";
+
+        return;
+      }
+
+      alert("Tersimpan");
+
+      batalEdit();
+
+    }
+
+    await loadData();
+
+    document.getElementById("loading").style.display = "none";
+
+    document.getElementById("btnSimpan").disabled = false;
+
+  } catch(err) {
+
+    document.getElementById("loading").style.display = "none";
+
+    document.getElementById("btnSimpan").disabled = false;
+
+    alert("Gagal terhubung ke server");
+
+    console.log(err);
+
   }
-  document.getElementById("nama").value = "";
-  document.getElementById("alamat").value = "";
-  document.getElementById("jumlah").value = "";
-  document.getElementById("btnSimpan").innerText = "Simpan";
-
-  loadData();
 
 }
 
 async function loadData() {
-  // 🔥 tampilkan loading
-  document.getElementById("loading").style.display = "block";
 
-  let res = await fetch(BASE_URL + "/data");
-  let data = await res.json();
+  try {
 
-  tampilkanTabel(data);
+    document.getElementById("loading").style.display = "block";
 
-  // 🔥 sembunyikan loading
-  document.getElementById("loading").style.display = "none";
+    let res = await fetch(BASE_URL + "/data", {
+      credentials: "include"
+    });
+
+    if (res.status === 401) {
+
+      document.getElementById("loading").style.display = "none";
+
+      alert("Session habis");
+
+      window.location.href = "login.html";
+
+      return;
+    }
+
+    let data = await res.json();
+
+    tampilkanTabel(data);
+
+    document.getElementById("loading").style.display = "none";
+
+  } catch(err) {
+
+    document.getElementById("loading").style.display = "none";
+
+    alert("Gagal terhubung ke server");
+
+    console.log(err);
+
+  }
+
 }
 
 async function hapusData(id) {
-  if (!confirm("Yakin mau hapus?")) return;
 
-  await fetch(BASE_URL + "/hapus/" + id, {
-    method: "DELETE",
-    credentials: "include"
-  });
+  try {
 
-  alert("Data dihapus");
+    if (!confirm("Yakin mau hapus?")) return;
 
-  loadData(); // refresh tabel
+    document.getElementById("loading").style.display = "block";
+
+    let res = await fetch(BASE_URL + "/hapus/" + id, {
+      method: "DELETE",
+      credentials: "include"
+    });
+
+    if (res.status === 401) {
+
+      document.getElementById("loading").style.display = "none";
+
+      alert("Session habis, login ulang");
+
+      window.location.href = "login.html";
+
+      return;
+    }
+
+    alert("Data dihapus");
+
+    await loadData();
+
+    document.getElementById("loading").style.display = "none";
+
+  } catch(err) {
+
+    document.getElementById("loading").style.display = "none";
+
+    alert("Gagal menghapus data");
+
+    console.log(err);
+
+  }
+
 }
 
 
 async function searchData() {
-  document.getElementById("loading").style.display = "block";
 
-  let keyword = document.getElementById("keyword").value;
+  try {
 
-  let res = await fetch(BASE_URL + "/search/" + keyword);
-  let data = await res.json();
+    document.getElementById("loading").style.display = "block";
 
-  tampilkanTabel(data);
+    let keyword = document.getElementById("keyword").value;
 
-  document.getElementById("loading").style.display = "none";
+    let res = await fetch(BASE_URL + "/search/" + encodeURIComponent(keyword),
+      {
+        credentials: "include"
+      }
+    );
+
+    if (res.status === 401) {
+
+      document.getElementById("loading").style.display = "none";
+
+      alert("Session habis");
+
+      window.location.href = "login.html";
+
+      return;
+    }
+
+    let data = await res.json();
+
+    tampilkanTabel(data);
+
+    document.getElementById("loading").style.display = "none";
+
+  } catch(err) {
+
+    document.getElementById("loading").style.display = "none";
+
+    alert("Gagal terhubung ke server");
+
+    console.log(err);
+
+  }
+
+}
+
+function escapeHtml(text) {
+
+  if (!text) return "";
+
+ return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function tampilkanTabel(data) {
@@ -245,41 +554,83 @@ function tampilkanTabel(data) {
     let tr = document.createElement("tr");
 
    tr.innerHTML = `
-    <td>${d.nama}</td>
-    <td>${d.nik}</td>
-    <td>${d.no_kk}</td>
-    <td>${d.alamat}</td>
-    <td>${d.jumlah_anggota}</td>
-    <td>${d.status_rumah}</td>
-    <td>${d.pendidikan}</td>
-    <td>${d.kesehatan}</td>
-    <td>${d.agama}</td>
-    <td>${d.hamil}</td>
-    <td>${d.lansia}</td>
-    <td>${d.no_registrasi}</td>
-    <td>${d.dasawisma}</td>
-    <td>${d.jabatan_pkk}</td>
+    <td>${escapeHtml(d.nama)}</td>
+    <td>${escapeHtml(d.nik)}</td>
+    <td>${escapeHtml(d.no_kk)}</td>
+    <td>${escapeHtml(d.alamat)}</td>
+    <td>${escapeHtml(d.jumlah_anggota)}</td>
+    <td>${escapeHtml(d.status_rumah)}</td>
+    <td>${escapeHtml(d.pendidikan)}</td>
+    <td>${escapeHtml(d.kesehatan)}</td>
+    <td>${escapeHtml(d.agama)}</td>
+    <td>${escapeHtml(d.hamil)}</td>
+    <td>${escapeHtml(d.lansia)}</td>
+    <td>${escapeHtml(d.no_registrasi)}</td>
+    <td>${escapeHtml(d.dasawisma)}</td>
+    <td>${escapeHtml(d.jabatan_pkk)}</td>
     <td>
       <button onclick="editData(
-        '${d.id}',
-        '${d.nama}',
-        '${d.nik}',
-        '${d.no_kk}',
-        '${d.alamat}',
-        '${d.jumlah_anggota}',
-        '${d.status_rumah}',
-        '${d.pendidikan}',
-        '${d.kesehatan}',
-        '${d.agama}',
-        '${d.hamil}',
-        '${d.lansia}',
-        '${d.no_registrasi}',
-        '${d.dasawisma}',
-        '${d.jabatan_pkk}'
-      )">Edit</button>
+  '${d.id}',
+
+  '${String(d.nama)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.nik)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.no_kk)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.alamat)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.jumlah_anggota)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.status_rumah)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.pendidikan)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.kesehatan)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.agama)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.hamil)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.lansia)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.no_registrasi)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.dasawisma)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}',
+
+  '${String(d.jabatan_pkk)
+    .replace(/\\/g, "\\\\")
+    .replace(/'/g, "\\'")}'
+)">Edit</button>
 
     ${
-       sessionStorage.getItem("role") === "admin"
+        currentUser?.role === "admin"
         ? `<button onclick="hapusData('${d.id}')">Hapus</button>`
          : ``
 }
@@ -319,81 +670,208 @@ function editData(
 }
 
 function batalEdit() {
+
   editId = null;
 
-document.getElementById("nama").value = "";
-document.getElementById("alamat").value = "";
-document.getElementById("jumlah").value = "";
+  document.getElementById("nama").value = "";
+  document.getElementById("alamat").value = "";
+  document.getElementById("jumlah").value = "";
 
-document.getElementById("nik").value = "";
-document.getElementById("no_kk").value = "";
-document.getElementById("agama").value = "Islam";
-document.getElementById("hamil").value = "Tidak";
-document.getElementById("lansia").value = "Tidak";
-document.getElementById("no_registrasi").value = "";
-document.getElementById("dasawisma").value = "";
-document.getElementById("jabatan_pkk").value = "Anggota";
+  document.getElementById("pendidikan").value = "SD";
+  document.getElementById("kesehatan").value = "Sehat";
+  document.getElementById("status_rumah").value = "Milik";
 
-document.getElementById("btnSimpan").innerText = "Simpan";
+  document.getElementById("nik").value = "";
+  document.getElementById("no_kk").value = "";
+
+  document.getElementById("agama").value = "Islam";
+  document.getElementById("hamil").value = "Tidak";
+  document.getElementById("lansia").value = "Tidak";
+
+  document.getElementById("no_registrasi").value = "";
+  document.getElementById("dasawisma").value = "";
+
+  document.getElementById("jabatan_pkk").value = "Anggota";
+
+  document.getElementById("btnSimpan").innerText = "Simpan";
+
+  document.getElementById("btnSimpan").disabled = false;
+
 }
+
 async function filterLansia() {
-  document.getElementById("loading").style.display = "block";
 
-  let res = await fetch(BASE_URL + "/lansia");
-  let data = await res.json();
+  try {
 
-  tampilkanTabel(data);
+    document.getElementById("loading").style.display = "block";
 
-  document.getElementById("loading").style.display = "none";
+    let res = await fetch(BASE_URL + "/lansia", {
+      credentials: "include"
+    });
+
+    if (res.status === 401) {
+
+      document.getElementById("loading").style.display = "none";
+
+      alert("Session habis");
+
+      window.location.href = "login.html";
+
+      return;
+    }
+
+    let data = await res.json();
+
+    tampilkanTabel(data);
+
+    document.getElementById("loading").style.display = "none";
+
+  } catch(err) {
+
+    document.getElementById("loading").style.display = "none";
+
+    alert("Gagal terhubung ke server");
+
+    console.log(err);
+
+  }
+
 }
 
 async function filterHamil() {
-  document.getElementById("loading").style.display = "block";
 
-  let res = await fetch(BASE_URL + "/hamil");
-  let data = await res.json();
+  try {
 
-  tampilkanTabel(data);
+    document.getElementById("loading").style.display = "block";
 
-  document.getElementById("loading").style.display = "none";
+    let res = await fetch(BASE_URL + "/hamil", {
+      credentials: "include"
+    });
+
+    if (res.status === 401) {
+
+      document.getElementById("loading").style.display = "none";
+
+      alert("Session habis");
+
+      window.location.href = "login.html";
+
+      return;
+    }
+
+    let data = await res.json();
+
+    tampilkanTabel(data);
+
+    document.getElementById("loading").style.display = "none";
+
+  } catch(err) {
+
+    document.getElementById("loading").style.display = "none";
+
+    alert("Gagal terhubung ke server");
+
+    console.log(err);
+
+  }
+
 }
 
 async function lihatLogs() {
 
-  document.getElementById("loading").style.display = "block";
+  try {
 
-  let res = await fetch(BASE_URL + "/logs", {
-    credentials: "include"
-  });
+    document.getElementById("loading").style.display = "block";
 
-  let data = await res.json();
+    let res = await fetch(BASE_URL + "/logs", {
+      credentials: "include"
+    });
 
-  let hasil = document.getElementById("hasil");
+    if (res.status === 401) {
 
-  hasil.innerHTML = "";
+      document.getElementById("loading").style.display = "none";
 
-  data.forEach(log => {
+      alert("Session habis, login ulang");
 
-    let tr = document.createElement("tr");
+      window.location.href = "login.html";
 
-    tr.innerHTML = `
-      <td colspan="15">
-        <b>${log.username}</b>
-        (${log.role})
-        melakukan
-        <b>${log.aksi}</b>
-        terhadap
-        <b>${log.target}</b>
-        <br>
-        ${log.waktu}
-      </td>
-    `;
+      return;
+    }
 
-    hasil.appendChild(tr);
+    let data = await res.json();
 
-  });
+    let hasil = document.getElementById("hasil");
 
-  document.getElementById("loading").style.display = "none";
+    hasil.innerHTML = "";
+
+    data.forEach(log => {
+
+      let tr = document.createElement("tr");
+
+      tr.innerHTML = `
+        <td colspan="15">
+          <b>${escapeHtml(log.username)}</b>
+          (${escapeHtml(log.role)})
+          melakukan
+          <b>${escapeHtml(log.aksi)}</b>
+          terhadap
+          <b>${escapeHtml(log.target)}</b>
+          <br>
+          ${escapeHtml(log.waktu)}
+        </td>
+      `;
+
+      hasil.appendChild(tr);
+
+    });
+
+    document.getElementById("loading").style.display = "none";
+
+  } catch(err) {
+
+    document.getElementById("loading").style.display = "none";
+
+    alert("Gagal terhubung ke server");
+
+    console.log(err);
+
+  }
+
+}
+
+async function logout() {
+
+  try {
+
+    document.getElementById("loading").style.display = "block";
+
+    let res = await fetch(BASE_URL + "/logout", {
+      method: "POST",
+      credentials: "include"
+    });
+
+    if (res.status === 401) {
+
+      document.getElementById("loading").style.display = "none";
+
+      alert("Session habis, login ulang");
+
+      window.location.href = "login.html";
+
+      return;
+    }
+
+    window.location.href = "login.html";
+
+  } catch(err) {
+
+    document.getElementById("loading").style.display = "none";
+
+    alert("Gagal logout");
+
+    console.log(err);
+
+  }
 
 }
 
