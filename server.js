@@ -9,7 +9,11 @@ const bcrypt = require("bcrypt");
 const helmet = require("helmet");
 
 const app = express();
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false
+  })
+);
 app.use(cors({
   origin: "https://aplikasi-warga-production.up.railway.app",
   credentials: true
