@@ -1,4 +1,5 @@
 require("dotenv").config();
+
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
@@ -18,11 +19,11 @@ app.use(session({
   saveUninitialized: false,
 
   cookie: {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    maxAge: 1000 * 60 * 60 * 24
-  }
+  httpOnly: true,
+  secure: false,
+  sameSite: "lax",
+  maxAge: 1000 * 60 * 60 * 24
+}
 }));
 
 app.use(express.static(__dirname));
